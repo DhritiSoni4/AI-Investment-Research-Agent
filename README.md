@@ -70,6 +70,3 @@ Deploy `backend` to Railway with a managed PostgreSQL database and deploy `front
 - Evaluation datasets for agent/tool reliability
 - Background-job queue and tracing
 
-## Resume bullet
-
-Built **AlphaAgent**, a tool-driven multi-agent equity research platform using FastAPI, Next.js, PostgreSQL, and streaming task telemetry to turn company queries into auditable financial research and investment recommendations.
