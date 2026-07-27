@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     cors_origins: str = Field(
         default="http://localhost:3000", validation_alias="BACKEND_CORS_ORIGINS"
     )
+    research_http_timeout_seconds: float = 12.0
+    research_user_agent: str = "AlphaAgent research@alphaagent.local"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

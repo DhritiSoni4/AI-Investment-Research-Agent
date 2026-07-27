@@ -64,7 +64,7 @@ def create_research_session(db: Session, request: CreateResearchSessionRequest) 
 def get_research_session(db: Session, session_id: UUID) -> ResearchSession:
     statement = (
         select(ResearchSession)
-        .options(selectinload(ResearchSession.events))
+        .options(selectinload(ResearchSession.events), selectinload(ResearchSession.artifacts))
         .where(ResearchSession.id == session_id)
     )
     session = db.scalar(statement)

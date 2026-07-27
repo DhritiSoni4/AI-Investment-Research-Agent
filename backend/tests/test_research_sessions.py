@@ -47,8 +47,9 @@ def test_streams_persisted_execution_events(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
-    assert "event: research.started" in response.text
-    assert "event: plan.created" in response.text
+    assert "event: research.event" in response.text
+    assert '"type": "research.started"' in response.text
+    assert '"type": "plan.created"' in response.text
     assert "event: stream.complete" in response.text
 
 

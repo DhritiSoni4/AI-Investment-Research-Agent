@@ -23,6 +23,9 @@ class ResearchSession(Base):
     events: Mapped[list["ResearchEvent"]] = relationship(
         back_populates="research_session", cascade="all, delete-orphan", order_by="ResearchEvent.sequence"
     )
+    artifacts: Mapped[list["AgentArtifact"]] = relationship(
+        back_populates="research_session", cascade="all, delete-orphan", order_by="AgentArtifact.created_at"
+    )
 
 
 class ResearchEvent(Base):
@@ -40,3 +43,20 @@ class ResearchEvent(Base):
     payload: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     research_session: Mapped[ResearchSession] = relationship(back_populates="events")
+
+
+class AgentArtifact(Base):
+    __tablename__ = "agent_artifacts"
+    __table_args__ = (UniqueConstraint("research_session_id", "agent_name", name="uq_agent_artifact"),)
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    research_session_id: Mapped[UUID] = mapped_column(
+        ForeignKey("research_sessions.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    agent_name: Mapped[str] = mapped_column(String(80), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    output: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    sources: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    research_session: Mapped[ResearchSession] = relationship(back_populates="artifacts")

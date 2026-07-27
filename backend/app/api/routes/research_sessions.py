@@ -3,15 +3,24 @@ import json
 from collections.abc import AsyncIterator
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.infrastructure.database import get_db_session
+from app.domain.research import ResearchEvent, ResearchSession
+from app.infrastructure.database import SessionLocal, get_db_session
 from app.schemas.research import (
     CreateResearchSessionRequest,
     ResearchSessionDetail,
     ResearchSessionRead,
+)
+from app.schemas.research import ResearchEventRead
+from app.services.research_execution import (
+    ResearchAlreadyExecutedError,
+    ResearchExecutionNotFoundError,
+    execute_research,
+    request_execution,
 )
 from app.services.research_sessions import (
     ResearchSessionNotFoundError,
@@ -47,6 +56,23 @@ def get_session(session_id: UUID, db: Session = Depends(get_db_session)) -> Rese
         raise _not_found() from error
 
 
+@router.post("/{session_id}/execute", response_model=ResearchSessionRead, status_code=status.HTTP_202_ACCEPTED)
+def execute_session(
+    session_id: UUID, background_tasks: BackgroundTasks, db: Session = Depends(get_db_session)
+) -> ResearchSessionRead:
+    try:
+        session = request_execution(db, session_id)
+    except ResearchExecutionNotFoundError as error:
+        raise _not_found() from error
+    except ResearchAlreadyExecutedError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only planned research sessions can be executed once.",
+        ) from error
+    background_tasks.add_task(execute_research, session.id)
+    return session
+
+
 @router.get("/{session_id}/events")
 async def stream_session_events(
     session_id: UUID, db: Session = Depends(get_db_session)
@@ -56,15 +82,34 @@ async def stream_session_events(
     except ResearchSessionNotFoundError as error:
         raise _not_found() from error
 
-    event_payloads = [
-        {"event": event.type, "data": event.model_dump(mode="json")}
-        for event in ResearchSessionDetail.model_validate(session).events
-    ]
-
     async def event_stream() -> AsyncIterator[str]:
-        for payload in event_payloads:
-            yield f"event: {payload['event']}\ndata: {json.dumps(payload['data'], default=str)}\n\n"
-            await asyncio.sleep(0.05)
+        last_sequence = 0
+        terminal_statuses = {"planned", "completed", "partial_failure", "failed"}
+        while True:
+            event_db = SessionLocal()
+            try:
+                events = list(
+                    event_db.scalars(
+                        select(ResearchEvent)
+                        .where(
+                            ResearchEvent.research_session_id == session_id,
+                            ResearchEvent.sequence > last_sequence,
+                        )
+                        .order_by(ResearchEvent.sequence)
+                    )
+                )
+                current_status = event_db.scalar(
+                    select(ResearchSession.status).where(ResearchSession.id == session_id)
+                )
+            finally:
+                event_db.close()
+            for event in events:
+                serialized = ResearchEventRead.model_validate(event).model_dump(mode="json")
+                yield f"event: research.event\ndata: {json.dumps(serialized)}\n\n"
+                last_sequence = event.sequence
+            if current_status in terminal_statuses and not events:
+                break
+            await asyncio.sleep(0.25)
         yield "event: stream.complete\ndata: {}\n\n"
 
     return StreamingResponse(

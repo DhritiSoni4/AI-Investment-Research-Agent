@@ -44,5 +44,25 @@ class ResearchSessionRead(BaseModel):
     updated_at: datetime | None
 
 
+class SourceCitation(BaseModel):
+    title: str
+    url: str
+    publisher: str
+    published_at: datetime | None = None
+
+
+class AgentArtifactRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    agent_name: str
+    status: str
+    summary: str
+    output: dict[str, Any]
+    sources: list[SourceCitation]
+    created_at: datetime
+
+
 class ResearchSessionDetail(ResearchSessionRead):
     events: list[ResearchEventRead]
+    artifacts: list[AgentArtifactRead] = []
