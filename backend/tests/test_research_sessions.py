@@ -5,13 +5,15 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.infrastructure.database import Base, get_db_session
+from app.infrastructure.database import Base, get_db_session, get_session_factory
 from app.main import app
 
 
 @pytest.fixture
 def client(tmp_path: pytest.TempPathFactory) -> Generator[TestClient, None, None]:
-    engine = create_engine(f"sqlite:///{tmp_path}/test.db", connect_args={"check_same_thread": False})
+    engine = create_engine(
+        f"sqlite:///{tmp_path}/test.db", connect_args={"check_same_thread": False}
+    )
     Base.metadata.create_all(engine)
     test_session_factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
@@ -23,6 +25,7 @@ def client(tmp_path: pytest.TempPathFactory) -> Generator[TestClient, None, None
             session.close()
 
     app.dependency_overrides[get_db_session] = override_db_session
+    app.dependency_overrides[get_session_factory] = lambda: test_session_factory
     yield TestClient(app)
     app.dependency_overrides.clear()
     Base.metadata.drop_all(engine)

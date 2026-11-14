@@ -6,16 +6,16 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.domain.research import ResearchEvent, ResearchSession
-from app.infrastructure.database import SessionLocal, get_db_session
+from app.infrastructure.database import get_db_session, get_session_factory
 from app.schemas.research import (
     CreateResearchSessionRequest,
+    ResearchEventRead,
     ResearchSessionDetail,
     ResearchSessionRead,
 )
-from app.schemas.research import ResearchEventRead
 from app.services.research_execution import (
     ResearchAlreadyExecutedError,
     ResearchExecutionNotFoundError,
@@ -40,23 +40,27 @@ def _not_found() -> HTTPException:
 def create_session(
     request: CreateResearchSessionRequest, db: Session = Depends(get_db_session)
 ) -> ResearchSessionDetail:
-    return create_research_session(db, request)
+    return ResearchSessionDetail.model_validate(create_research_session(db, request))
 
 
 @router.get("", response_model=list[ResearchSessionRead])
 def list_sessions(db: Session = Depends(get_db_session)) -> list[ResearchSessionRead]:
-    return list_research_sessions(db)
+    return [ResearchSessionRead.model_validate(item) for item in list_research_sessions(db)]
 
 
 @router.get("/{session_id}", response_model=ResearchSessionDetail)
 def get_session(session_id: UUID, db: Session = Depends(get_db_session)) -> ResearchSessionDetail:
     try:
-        return get_research_session(db, session_id)
+        return ResearchSessionDetail.model_validate(get_research_session(db, session_id))
     except ResearchSessionNotFoundError as error:
         raise _not_found() from error
 
 
-@router.post("/{session_id}/execute", response_model=ResearchSessionRead, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/{session_id}/execute",
+    response_model=ResearchSessionRead,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 def execute_session(
     session_id: UUID, background_tasks: BackgroundTasks, db: Session = Depends(get_db_session)
 ) -> ResearchSessionRead:
@@ -70,15 +74,17 @@ def execute_session(
             detail="Only planned research sessions can be executed once.",
         ) from error
     background_tasks.add_task(execute_research, session.id)
-    return session
+    return ResearchSessionRead.model_validate(session)
 
 
 @router.get("/{session_id}/events")
 async def stream_session_events(
-    session_id: UUID, db: Session = Depends(get_db_session)
+    session_id: UUID,
+    db: Session = Depends(get_db_session),
+    session_factory: sessionmaker[Session] = Depends(get_session_factory),
 ) -> StreamingResponse:
     try:
-        session = get_research_session(db, session_id)
+        get_research_session(db, session_id)
     except ResearchSessionNotFoundError as error:
         raise _not_found() from error
 
@@ -86,7 +92,7 @@ async def stream_session_events(
         last_sequence = 0
         terminal_statuses = {"planned", "completed", "partial_failure", "failed"}
         while True:
-            event_db = SessionLocal()
+            event_db = session_factory()
             try:
                 events = list(
                     event_db.scalars(

@@ -32,3 +32,8 @@ def get_db_session() -> Generator[Session, None, None]:
         yield session
     finally:
         session.close()
+
+
+def get_session_factory() -> sessionmaker[Session]:
+    """Dependency for long-lived handlers (e.g. SSE) that open short sessions per poll."""
+    return SessionLocal
