@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database import Base
@@ -21,16 +21,22 @@ class ResearchSession(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     events: Mapped[list["ResearchEvent"]] = relationship(
-        back_populates="research_session", cascade="all, delete-orphan", order_by="ResearchEvent.sequence"
+        back_populates="research_session",
+        cascade="all, delete-orphan",
+        order_by="ResearchEvent.sequence",
     )
     artifacts: Mapped[list["AgentArtifact"]] = relationship(
-        back_populates="research_session", cascade="all, delete-orphan", order_by="AgentArtifact.created_at"
+        back_populates="research_session",
+        cascade="all, delete-orphan",
+        order_by="AgentArtifact.created_at",
     )
 
 
 class ResearchEvent(Base):
     __tablename__ = "research_events"
-    __table_args__ = (UniqueConstraint("research_session_id", "sequence", name="uq_event_sequence"),)
+    __table_args__ = (
+        UniqueConstraint("research_session_id", "sequence", name="uq_event_sequence"),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     research_session_id: Mapped[UUID] = mapped_column(
@@ -47,7 +53,9 @@ class ResearchEvent(Base):
 
 class AgentArtifact(Base):
     __tablename__ = "agent_artifacts"
-    __table_args__ = (UniqueConstraint("research_session_id", "agent_name", name="uq_agent_artifact"),)
+    __table_args__ = (
+        UniqueConstraint("research_session_id", "agent_name", name="uq_agent_artifact"),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     research_session_id: Mapped[UUID] = mapped_column(

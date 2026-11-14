@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.domain.research import ResearchEvent, ResearchSession
-from app.schemas.research import CreateResearchSessionRequest, ResearchPlan
+from app.schemas.research import CreateResearchSessionRequest, ResearchPlan, ResearchPlanStep
 
 _PLAN_STEPS: Final[tuple[tuple[str, str], ...]] = (
     ("Planner Agent", "Create an auditable research plan and task order."),
@@ -23,7 +23,9 @@ class ResearchSessionNotFoundError(Exception):
 def build_plan(query: str) -> ResearchPlan:
     return ResearchPlan(
         objective=f"Produce an evidence-backed research brief for: {query}",
-        steps=[{"agent": agent, "objective": objective} for agent, objective in _PLAN_STEPS],
+        steps=[
+            ResearchPlanStep(agent=agent, objective=objective) for agent, objective in _PLAN_STEPS
+        ],
     )
 
 

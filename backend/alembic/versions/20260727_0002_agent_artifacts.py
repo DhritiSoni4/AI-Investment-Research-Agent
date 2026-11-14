@@ -5,8 +5,9 @@ Revises: 20260727_0001
 Create Date: 2026-07-27
 """
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "20260727_0002"
 down_revision = "20260727_0001"
@@ -24,12 +25,21 @@ def upgrade() -> None:
         sa.Column("summary", sa.Text(), nullable=False),
         sa.Column("output", sa.JSON(), nullable=False),
         sa.Column("sources", sa.JSON(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
-        sa.ForeignKeyConstraint(["research_session_id"], ["research_sessions.id"], ondelete="CASCADE"),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(
+            ["research_session_id"], ["research_sessions.id"], ondelete="CASCADE"
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("research_session_id", "agent_name", name="uq_agent_artifact"),
     )
-    op.create_index("ix_agent_artifacts_research_session_id", "agent_artifacts", ["research_session_id"])
+    op.create_index(
+        "ix_agent_artifacts_research_session_id", "agent_artifacts", ["research_session_id"]
+    )
 
 
 def downgrade() -> None:

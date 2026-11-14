@@ -31,7 +31,8 @@ class YahooFinanceTool:
         if quote is None or not quote.get("symbol"):
             raise ToolFailure(f"No publicly listed company was found for '{query}'")
         return ResolvedCompany(
-            ticker=quote["symbol"], name=quote.get("longname") or quote.get("shortname") or quote["symbol"],
+            ticker=quote["symbol"],
+            name=quote.get("longname") or quote.get("shortname") or quote["symbol"],
             exchange=quote.get("exchDisp"),
         )
 
@@ -44,7 +45,9 @@ class YahooFinanceTool:
         return profile, [self._source(ticker, "Company profile")]
 
     def financials(self, ticker: str) -> tuple[dict[str, Any], list[ToolSource]]:
-        modules = "incomeStatementHistory,balanceSheetHistory,cashflowStatementHistory,financialData"
+        modules = (
+            "incomeStatementHistory,balanceSheetHistory,cashflowStatementHistory,financialData"
+        )
         data = self._quote_summary(ticker, modules)
         result = data.get("quoteSummary", {}).get("result") or []
         if not result:
@@ -53,7 +56,9 @@ class YahooFinanceTool:
 
     def news(self, query: str) -> tuple[list[dict[str, Any]], list[ToolSource]]:
         try:
-            response = self._client.get(f"{self.base_url}/v1/finance/search", params={"q": query, "newsCount": 12})
+            response = self._client.get(
+                f"{self.base_url}/v1/finance/search", params={"q": query, "newsCount": 12}
+            )
             response.raise_for_status()
             articles = response.json().get("news", [])
         except (httpx.HTTPError, ValueError) as error:
@@ -86,7 +91,8 @@ class YahooFinanceTool:
                 f"{self.base_url}/v10/finance/quoteSummary/{ticker}", params={"modules": modules}
             )
             response.raise_for_status()
-            return response.json()
+            payload: dict[str, Any] = response.json()
+            return payload
         except (httpx.HTTPError, ValueError) as error:
             raise ToolFailure(f"Yahoo Finance data is unavailable for {ticker}") from error
 
